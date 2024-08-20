@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"time"
 )
 
 // Map functions return a slice of KeyValue.
@@ -41,17 +42,20 @@ func Worker(mapf func(string, string) []KeyValue,
 		args := TaskRequest{}
 		reply := TaskResponse{}
 		CallGetTask(&args, &reply)
-		filename := reply.XTask.FileName
+		// time.Sleep(time.Second)
 		state := reply.State
-		if state == 0 {
+		CurNumMapTask := reply.CurNumMapTask
+		CurNumReduceTask := reply.CurNumReduceTask
+		if CurNumMapTask >= 0 && state == 0 {
+			filename := reply.XTask.FileName
 			id := reply.XTask.MapId
 			file, err := os.Open(filename)
 			if err != nil {
-				log.Fatal("cannot open mapTask", filename) // %v
+				log.Fatalf("cannot open mapTask %v", filename) // %v
 			}
 			content, err := io.ReadAll(file)
 			if err != nil {
-				log.Fatal("cannot read", filename) // %v
+				log.Fatalf("cannot read %v", filename) // %v
 			}
 			file.Close()
 			kva := mapf(filename, string(content))
@@ -82,7 +86,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			}
 			// 走到这是map任务完成了，需要将coordinator发送完成的请求，即直接修改reply
 			CallTaskFin()
-		} else if state == 1 {
+		} else if CurNumReduceTask >= 0 && state == 1 {
 			// filename=""为空，说明此时的reply里没有Task了
 			num_map := reply.NumMapTask
 			id := strconv.Itoa(reply.XTask.ReduceId)
@@ -96,7 +100,7 @@ func Worker(mapf func(string, string) []KeyValue,
 				if err != nil {
 					log.Fatalf("cannot open reduceTask %v", map_filename)
 				}
-				// 解码，将结果都存入kva中
+				// 解码，将结果都存入中
 				dec := json.NewDecoder(inputFile)
 				for {
 					var kv []KeyValue
@@ -115,8 +119,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			i := 0
 			for i < len(intermediate) {
 				j := i + 1
-				for j < len(intermediate) && intermediate[j].Key ==
-					intermediate[i].Key {
+				for j < len(intermediate) && intermediate[j].Key == intermediate[i].Key {
 					j++
 				}
 				values := []string{}
@@ -133,6 +136,7 @@ func Worker(mapf func(string, string) []KeyValue,
 		} else {
 			break
 		}
+		time.Sleep(time.Second)
 	}
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()

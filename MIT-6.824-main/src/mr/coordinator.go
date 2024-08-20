@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -43,15 +44,30 @@ func (c *Coordinator) CallExample(args *ExampleArgs, reply *ExampleReply) error 
 func (c *Coordinator) GetTask(args *TaskRequest, reply *TaskResponse) error {
 	// 提供给worker rpc 调用的
 	// 需要先判断c的状态？
-	if len(c.MapTaskFin) != c.NumMapTask {
+	if len(c.MapTask) != 0 {
+		fmt.Println(">>>>>>>>>>>>>>>MapTask: ", len(c.MapTask))
 		maptask, ok := <-c.MapTask
 		if ok {
 			reply.XTask = maptask
 		}
-	} else if len(c.ReduceTaskFin) != c.NumReduceTask {
-		reducetask, ok := <-c.ReduceTask
-		if ok {
-			reply.XTask = reducetask
+		reply.CurNumMapTask = len(c.MapTask)
+		reply.CurNumReduceTask = len(c.ReduceTask)
+	} else {
+		reply.CurNumMapTask = -1
+		reply.CurNumReduceTask = len(c.ReduceTask)
+	}
+	if c.State == 1 {
+		if len(c.ReduceTask) != 0 {
+			fmt.Println(">>>>>>>>>>>>>>>ReduceTask: ", len(c.ReduceTask))
+			reducetask, ok := <-c.ReduceTask
+			if ok {
+				reply.XTask = reducetask
+			}
+			reply.CurNumMapTask = -1
+			reply.CurNumReduceTask = len(c.ReduceTask)
+		} else {
+			reply.CurNumMapTask = -1
+			reply.CurNumReduceTask = -1
 		}
 	}
 	reply.NumMapTask = c.NumMapTask

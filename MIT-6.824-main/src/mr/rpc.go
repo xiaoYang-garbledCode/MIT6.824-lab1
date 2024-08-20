@@ -29,10 +29,12 @@ type TaskRequest struct {
 }
 
 type TaskResponse struct {
-	XTask         Task
-	NumMapTask    int
-	NumReduceTask int
-	State         int
+	XTask            Task
+	NumMapTask       int
+	NumReduceTask    int
+	State            int
+	CurNumMapTask    int
+	CurNumReduceTask int
 }
 
 type TaskFinRequest struct {
