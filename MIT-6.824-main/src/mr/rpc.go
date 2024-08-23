@@ -32,7 +32,7 @@ type TaskResponse struct {
 	XTask            Task
 	NumMapTask       int
 	NumReduceTask    int
-	State            int
+	State            int32
 	CurNumMapTask    int
 	CurNumReduceTask int
 }

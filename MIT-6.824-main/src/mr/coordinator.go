@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 type Task struct {
@@ -17,14 +20,40 @@ type Task struct {
 
 type Coordinator struct {
 	// Your definitions here.
-	State         int // map 0 reduce 1 Fin 2
-	NumMapTask    int
-	NumReduceTask int
+	State          int32 // map 0 reduce 1 Fin 2
+	NumMapTask     int
+	NumReduceTask  int
+	MapTask        chan Task
+	ReduceTask     chan Task
+	MapTaskTime    sync.Map
+	ReduceTaskTime sync.Map
+	files          []string
+}
 
-	MapTask       chan Task
-	ReduceTask    chan Task
-	MapTaskFin    chan bool
-	ReduceTaskFin chan bool
+type TimeStamp struct {
+	Time int64
+	Fin  bool
+}
+
+func lenSyncFin(m *sync.Map) int {
+	var i int
+	m.Range(func(k, v interface{}) bool {
+		i++
+		return true
+	})
+	return i
+}
+
+// 计算 sync.Map 中 TimeStamp 结构体的 Fin 字段为 true 的数量。
+func lenTaskFin(m *sync.Map) int {
+	var i int
+	m.Range(func(k, v interface{}) bool {
+		if v.(TimeStamp).Fin {
+			i++
+		}
+		return true
+	})
+	return i
 }
 
 // type Coordinator struct {
@@ -45,7 +74,7 @@ func (c *Coordinator) GetTask(args *TaskRequest, reply *TaskResponse) error {
 	// 提供给worker rpc 调用的
 	// 需要先判断c的状态？
 	if len(c.MapTask) != 0 {
-		fmt.Println(">>>>>>>>>>>>>>>MapTask: ", len(c.MapTask))
+		// fmt.Println(">>>>>>>>>>>>>>>MapTask: ", len(c.MapTask))
 		maptask, ok := <-c.MapTask
 		if ok {
 			reply.XTask = maptask
@@ -58,7 +87,7 @@ func (c *Coordinator) GetTask(args *TaskRequest, reply *TaskResponse) error {
 	}
 	if c.State == 1 {
 		if len(c.ReduceTask) != 0 {
-			fmt.Println(">>>>>>>>>>>>>>>ReduceTask: ", len(c.ReduceTask))
+			// fmt.Println(">>>>>>>>>>>>>>>ReduceTask: ", len(c.ReduceTask))
 			reducetask, ok := <-c.ReduceTask
 			if ok {
 				reply.XTask = reducetask
@@ -76,20 +105,57 @@ func (c *Coordinator) GetTask(args *TaskRequest, reply *TaskResponse) error {
 	return nil
 }
 
-func (c *Coordinator) TaskFin(args *ExampleArgs, reply *ExampleReply) error {
+func (c *Coordinator) TaskFin(args *Task, reply *ExampleReply) error {
 	// 提供给worker rpc 调用的
-	if len(c.MapTaskFin) != c.NumMapTask {
-		c.MapTaskFin <- true
-		if len(c.MapTaskFin) == c.NumMapTask {
-			c.State = 1
+	time_now := time.Now().Unix()
+	if lenTaskFin(&c.MapTaskTime) != c.NumMapTask {
+		start_time, _ := c.MapTaskTime.Load(args.MapId)
+		if time_now-start_time.(TimeStamp).Time > 10 {
+			return nil
 		}
-	} else if len(c.ReduceTaskFin) != c.NumReduceTask {
-		c.ReduceTaskFin <- true
-		if len(c.ReduceTaskFin) == c.NumReduceTask {
-			c.State = 2
+		c.MapTaskTime.Store(args.MapId, TimeStamp{time_now, true})
+		if lenTaskFin(&c.MapTaskTime) == c.NumMapTask {
+			atomic.StoreInt32(&c.State, 1)
+			for i := 0; i < c.NumReduceTask; i++ {
+				c.ReduceTask <- Task{ReduceId: i}
+				c.ReduceTaskTime.Store(i, TimeStamp{time_now, false})
+			}
+		}
+	} else if lenTaskFin(&c.ReduceTaskTime) != c.NumReduceTask {
+		start_time, _ := c.ReduceTaskTime.Load(args.MapId)
+		if time_now-start_time.(TimeStamp).Time > 10 {
+			return nil
+		}
+		c.ReduceTaskTime.Store(args.ReduceId, TimeStamp{time_now, true})
+		if lenTaskFin(&c.ReduceTaskTime) == c.NumReduceTask {
+			atomic.StoreInt32(&c.State, 2)
 		}
 	}
 	return nil
+}
+
+func (c *Coordinator) TimeTick() {
+	state := atomic.LoadInt32(&c.State)
+	time_now := time.Now().Unix()
+	if state == 0 {
+		for i := 0; i < c.NumMapTask; i++ {
+			tmp, _ := c.MapTaskTime.Load(i)
+			if !tmp.(TimeStamp).Fin && time_now-tmp.(TimeStamp).Time > 10 {
+				fmt.Println("map time out!")
+				c.MapTask <- Task{FileName: c.files[i], MapId: i}
+				c.MapTaskTime.Store(i, TimeStamp{time_now, false})
+			}
+		}
+	} else if state == 1 {
+		for i := 0; i < c.NumReduceTask; i++ {
+			tmp, _ := c.ReduceTaskTime.Load(i)
+			if !tmp.(TimeStamp).Fin && time_now-tmp.(TimeStamp).Time > 10 {
+				fmt.Println("reduce time out!")
+				c.ReduceTask <- Task{ReduceId: i}
+				c.ReduceTaskTime.Store(i, TimeStamp{time_now, false})
+			}
+		}
+	}
 }
 
 // start a thread that listens for RPCs from worker.go
@@ -109,11 +175,13 @@ func (c *Coordinator) server() {
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
-	ret := false
+	// ret := false
 	// Your code here.
-
-	if len(c.ReduceTaskFin) == c.NumReduceTask {
+	var ret bool
+	if c.State == 2 {
 		ret = true
+	} else {
+		ret = false
 	}
 	return ret
 }
@@ -126,24 +194,17 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 		State:         0,
 		MapTask:       make(chan Task, len(files)),
 		ReduceTask:    make(chan Task, nReduce),
-		MapTaskFin:    make(chan bool, len(files)),
-		ReduceTaskFin: make(chan bool, nReduce),
 		NumMapTask:    len(files),
 		NumReduceTask: nReduce,
+		files:         files,
 	}
+	time_now := time.Now().Unix()
 	// 将文件名派发到task  一个文件对应一个task
 	// Map的task。这里还可以使用NumMapTask作为id，即分桶进行负载均衡
 	for id, file := range files {
 		c.MapTask <- Task{FileName: file, MapId: id}
+		c.MapTaskTime.Store(id, TimeStamp{time_now, false})
 	}
-	// Ruduce的task
-	for i := 0; i < nReduce; i++ {
-		c.ReduceTask <- Task{ReduceId: i}
-	}
-	// c := Coordinator{
-	// 	Y: 111,
-	// }
-	// Your code here.
 	c.server()
 	return &c
 }

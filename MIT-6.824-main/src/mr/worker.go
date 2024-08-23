@@ -85,7 +85,7 @@ func Worker(mapf func(string, string) []KeyValue,
 				os.Rename(tmp_file.Name(), out_file_name)
 			}
 			// 走到这是map任务完成了，需要将coordinator发送完成的请求，即直接修改reply
-			CallTaskFin()
+			CallTaskFin(&reply.XTask)
 		} else if CurNumReduceTask >= 0 && state == 1 {
 			// filename=""为空，说明此时的reply里没有Task了
 			num_map := reply.NumMapTask
@@ -132,7 +132,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			}
 			tmp_file.Close()
 			os.Rename(tmp_file.Name(), out_file_name)
-			CallTaskFin()
+			CallTaskFin(&reply.XTask)
 		} else {
 			break
 		}
@@ -168,20 +168,20 @@ func CallGetTask(args *TaskRequest, reply *TaskResponse) {
 	ok := call("Coordinator.GetTask", &args, &reply)
 	if ok {
 		// reply.Y should be 100.
-		fmt.Printf("call GetMapTask ok! \n")
+		// fmt.Printf("call GetMapTask ok! \n")
 	} else {
 		fmt.Printf("call failed! \n")
 	}
 }
 
-func CallTaskFin() {
+func CallTaskFin(args *Task) {
 	// send the RPC request, wait for the reply.
-	args := ExampleArgs{}
+	// args := ExampleArgs{}
 	reply := ExampleReply{}
 	ok := call("Coordinator.TaskFin", &args, &reply)
 	if ok {
 		// reply.Y should be 100.
-		fmt.Printf("call GetTaskFin ok! \n")
+		// fmt.Printf("call GetTaskFin ok! \n")
 	} else {
 		fmt.Printf("call failed! \n")
 	}
