@@ -1,0 +1,84 @@
+000004 T0000 VOTE S0 Follower->Candidate, For T1
+Test (PartA): election after network failure ...
+000005 T0000 VOTE S1 Follower->Candidate, For T1
+000006 T0000 VOTE S2 Follower->Candidate, For T1
+000008 T0001 VOTE S2 -> S0, Reject, Already voted to S2
+000008 T0001 VOTE S1 -> S2, Reject, Already voted to S1
+000009 T0001 VOTE S1 -> S0, Reject, Already voted to S1
+000009 T0001 VOTE S0 -> S1, Reject, Already voted to S0
+000010 T0001 VOTE S2 -> S1, Reject, Already voted to S2
+000011 T0001 VOTE S0 -> S2, Reject, Already voted to S0
+001810 T0001 VOTE S1 Candidate->Candidate, For T2
+001813 T0001 LOG1 S2 Candidate->Follower, For T1->T2
+001813 T0002 VOTE S2 -> S1, Vote granted
+001814 T0002 LEAD S1 Become Leader in T2
+001815 T0001 LOG1 S0 Candidate->Follower, For T1->T2
+001815 T0002 VOTE S0 -> S1, Vote granted
+001816 T0002 VOTE S1 -> S0, Lost context, abort RequestVoteReply
+001816 T0002 LOG1 S0 Follower->Follower, For T2->T2
+001816 T0002 LOG1 S2 Follower->Follower, For T2->T2
+003818 T0002 LOG1 S2 Follower->Follower, For T2->T2
+003818 T0002 LOG1 S0 Follower->Follower, For T2->T2
+007355 T0002 VOTE S2 Follower->Candidate, For T3
+007357 T0002 LOG1 S0 Follower->Follower, For T2->T3
+007357 T0003 VOTE S0 -> S2, Vote granted
+007358 T0003 LEAD S2 Become Leader in T3
+007360 T0003 LOG1 S0 Follower->Follower, For T3->T3
+009363 T0003 LOG1 S0 Follower->Follower, For T3->T3
+011366 T0002 LOG1 S1 Leader->Follower, For T2->T3
+011366 T0003 LOG1 S0 Follower->Follower, For T3->T3
+011865 T0003 LOG1 S1 Lost Leader[2] to Follower[T3]
+012397 T0003 LOG1 S2 -> S1, Lost or crashed
+013369 T0003 LOG1 S1 Follower->Follower, For T3->T3
+013370 T0003 LOG1 S0 Follower->Follower, For T3->T3
+013619 T0003 LOG1 S1 -> S2, Lost or crashed
+015304 T0003 LOG1 S1 -> S0, Lost or crashed
+017656 T0003 LOG1 S1 -> S0, Lost or crashed
+018375 T0003 VOTE S1 Follower->Candidate, For T4
+019409 T0003 VOTE S0 Follower->Candidate, For T4
+021096 T0004 VOTE S1 Candidate->Candidate, For T5
+022184 T0004 VOTE S0 Candidate->Candidate, For T5
+023237 T0005 VOTE S1 Candidate->Candidate, For T6
+023386 T0005 VOTE S0 Candidate->Candidate, For T6
+023490 T0003 LOG1 S2 -> S1, Lost or crashed
+025094 T0006 VOTE S1 Candidate->Candidate, For T7
+025194 T0006 VOTE S0 Candidate->Candidate, For T7
+026634 T0007 DBUG S1 -> S0, Ask vote, Lost or error
+027459 T0007 VOTE S0 Candidate->Candidate, For T8
+027840 T0007 DBUG S1 -> S0, Ask vote, Lost or error
+027998 T0007 VOTE S1 Candidate->Candidate, For T8
+028805 T0008 VOTE S0 Candidate->Candidate, For T9
+030192 T0008 VOTE S1 Candidate->Candidate, For T9
+031139 T0003 LOG1 S2 -> S1, Lost or crashed
+032124 T0009 VOTE S0 Candidate->Candidate, For T10
+032143 T0009 VOTE S1 Candidate->Candidate, For T10
+033348 T0010 VOTE S1 Candidate->Candidate, For T11
+033936 T0011 DBUG S1 -> S2, Ask vote, Lost or error
+034462 T0011 VOTE S1 Candidate->Candidate, For T12
+034521 T0010 VOTE S0 Candidate->Candidate, For T11
+034631 T0011 DBUG S0 -> S1, Ask vote, Lost or error
+035424 T0003 LOG1 S2 -> S0, Lost or crashed
+036011 T0011 DBUG S0 -> S2, Ask vote, Lost or error
+036603 T0012 DBUG S1 -> S2, Ask vote, Lost or error
+037067 T0011 VOTE S0 Candidate->Candidate, For T12
+037068 T0012 VOTE S1 Candidate->Candidate, For T13
+037069 T0013 VOTE S1 -> S0, Reject voted, Higher term, T13>T12
+037069 T0012 LOG1 S0 Candidate->Follower, For T12->T13
+037070 T0013 VOTE S0 -> S1, Vote granted
+037071 T0013 LEAD S1 Become Leader in T13
+037072 T0013 LOG1 S0 Follower->Follower, For T13->T13
+038866 T0013 DBUG S1 -> S2, Ask vote, Lost or error
+039079 T0013 LOG1 S0 Follower->Follower, For T13->T13
+039780 T0013 DBUG S0 -> S1, Ask vote, Lost or error
+040270 T0003 LOG1 S2 -> S1, Lost or crashed
+041082 T0003 LOG1 S2 Leader->Follower, For T3->T13
+041083 T0013 LOG1 S0 Follower->Follower, For T13->T13
+041472 T0013 LOG1 S2 Lost Leader[3] to Follower[T13]
+042405 T0013 LOG1 S2 -> S1, Lost or crashed
+042525 T0013 LOG1 S1 -> S0, Lost or crashed
+042887 T0013 DBUG S0 -> S1, Ask vote, Lost or error
+043094 T0013 LOG1 S2 Follower->Follower, For T13->T13
+043094 T0013 LOG1 S0 Follower->Follower, For T13->T13
+  ... Passed --   4.5  3  100    7778    0
+PASS
+ok  	course/raft	4.496s
